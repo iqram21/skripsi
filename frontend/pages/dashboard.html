@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Device Restricted App</title>
     <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
 </head>
 <body>
     <div class="dashboard-container">
@@ -21,6 +22,91 @@
                 <p>You have successfully logged in with device-restricted authentication.</p>
                 <div class="device-info">
                     <small>Device ID: <span id="deviceId">Loading...</span></small>
+                </div>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Active Sessions</span>
+                        <div class="stat-icon primary">📊</div>
+                    </div>
+                    <div class="stat-value" id="activeSessions">1</div>
+                    <div class="stat-label">Current active session</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Login Time</span>
+                        <div class="stat-icon success">⏰</div>
+                    </div>
+                    <div class="stat-value" id="loginTime">--:--</div>
+                    <div class="stat-label">Time since login</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-title">Security Status</span>
+                        <div class="stat-icon warning">🔒</div>
+                    </div>
+                    <div class="stat-value" id="securityStatus">Secure</div>
+                    <div class="stat-label">Device authenticated</div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="dashboard-card quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="actions-grid">
+                    <div class="action-button" onclick="refreshSession()">
+                        <span class="icon">🔄</span>
+                        <div class="title">Refresh Session</div>
+                        <div class="description">Update your session status</div>
+                    </div>
+                    
+                    <div class="action-button" onclick="viewProfile()">
+                        <span class="icon">👤</span>
+                        <div class="title">View Profile</div>
+                        <div class="description">Manage your account settings</div>
+                    </div>
+                    
+                    <div class="action-button" onclick="viewActivity()">
+                        <span class="icon">📋</span>
+                        <div class="title">Activity Log</div>
+                        <div class="description">View recent activities</div>
+                    </div>
+                    
+                    <div class="action-button" onclick="deviceSettings()">
+                        <span class="icon">⚙️</span>
+                        <div class="title">Device Settings</div>
+                        <div class="description">Manage device preferences</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Section -->
+            <div class="profile-section">
+                <div class="profile-header">
+                    <div class="profile-avatar" id="profileAvatar">U</div>
+                    <div class="profile-info">
+                        <h3 id="profileName">Loading...</h3>
+                        <p id="profileEmail">Loading...</p>
+                    </div>
+                </div>
+                <div class="profile-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Last Login</span>
+                        <span class="detail-value" id="lastLogin">Just now</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Account Type</span>
+                        <span class="detail-value">Standard User</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Device Status</span>
+                        <span class="detail-value" style="color: #27ae60;">✓ Verified</span>
+                    </div>
                 </div>
             </div>
         </main>
