@@ -69,16 +69,43 @@ async function handleLogin(e) {
         setLoadingState(true);
         clearError();
         
-        // Get device ID
+        // Try secure login first
+        let response;
+        try {
+            response = await secureLogin(username, password);
+            
+            if (response.success) {
+                // Save user data for remember me functionality
+                if (rememberMe && response.user) {
+                    localStorage.setItem('rememberedUser', JSON.stringify({
+                        username: response.user.username,
+                        email: response.user.email
+                    }));
+                }
+                
+                // Show success message briefly
+                showSuccess('Login successful! Redirecting...');
+                
+                // Redirect to dashboard after short delay
+                setTimeout(() => {
+                    window.location.href = './dashboard.html';
+                }, 1000);
+                
+                return;
+            }
+        } catch (secureError) {
+            console.warn('Secure login failed, falling back to legacy:', secureError);
+        }
+        
+        // Fallback to legacy login
         const deviceId = await getDeviceId();
         if (!deviceId) {
             throw new Error('Unable to generate device ID. Please try again.');
         }
         
-        // Attempt login
-        const response = await login(username, password, deviceId);
+        response = await login(username, password, deviceId);
         
-        // Save authentication data
+        // Save authentication data (legacy)
         saveAuthData(response.token, response.user, rememberMe);
         
         // Show success message briefly

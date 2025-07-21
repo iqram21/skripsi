@@ -3,6 +3,33 @@ const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
 const DEVICE_KEY = 'device_id';
 const REMEMBER_KEY = 'remember_me';
+const SESSION_TOKEN_KEY = 'sessionToken';
+const DEVICE_TOKEN_KEY = 'deviceToken';
+
+/**
+ * Check if user is authenticated (secure or legacy)
+ * @returns {boolean} - True if authenticated
+ */
+function isAuthenticated() {
+    // Check for secure authentication first
+    if (isSecurelyAuthenticated()) {
+        return true;
+    }
+    
+    // Check for legacy authentication
+    const token = getToken();
+    return !!token;
+}
+
+/**
+ * Check if user is authenticated with secure tokens
+ * @returns {boolean} - True if securely authenticated
+ */
+function isSecurelyAuthenticated() {
+    const sessionToken = localStorage.getItem(SESSION_TOKEN_KEY);
+    const deviceToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+    return !!(sessionToken && deviceToken);
+}
 
 /**
  * Save authentication data to storage
@@ -78,46 +105,22 @@ function getUserData() {
 }
 
 /**
- * Check if user is authenticated
- * @returns {boolean} - True if authenticated
- */
-function isAuthenticated() {
-    const token = getToken();
-    if (!token) return false;
-    
-    try {
-        // Basic token validation (check if it's not expired)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const currentTime = Date.now() / 1000;
-        
-        if (payload.exp && payload.exp < currentTime) {
-            // Token expired, clear it
-            clearAuthData();
-            return false;
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error validating token:', error);
-        clearAuthData();
-        return false;
-    }
-}
-
-/**
- * Clear all authentication data
+ * Clear all authentication data (secure and legacy)
  */
 function clearAuthData() {
     try {
-        // Clear from localStorage
+        // Clear legacy authentication data
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem(REMEMBER_KEY);
         
-        // Clear from sessionStorage
         sessionStorage.removeItem(TOKEN_KEY);
         sessionStorage.removeItem(USER_KEY);
         sessionStorage.removeItem(REMEMBER_KEY);
+        
+        // Clear secure authentication tokens
+        localStorage.removeItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem(DEVICE_TOKEN_KEY);
         
         console.log('Authentication data cleared');
     } catch (error) {

@@ -2,7 +2,59 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
 /**
- * Login function to authenticate user
+ * New secure login function
+ * @param {string} email - User's email or username
+ * @param {string} password - User's password
+ * @returns {Promise<Object>} - Login response with tokens and user info
+ */
+async function secureLogin(email, password) {
+    try {
+        // Get device information (this is just for tracking, not security)
+        const deviceInfo = {
+            userAgent: navigator.userAgent,
+            screenResolution: `${screen.width}x${screen.height}`,
+            platform: navigator.platform
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: email,
+                password,
+                deviceInfo
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || data.message || 'Login failed');
+        }
+        
+        if (data.success && data.sessionToken && data.deviceToken) {
+            // Store ONLY the server-generated tokens
+            localStorage.setItem('sessionToken', data.sessionToken);
+            localStorage.setItem('deviceToken', data.deviceToken);
+            // DO NOT store any device ID that can be manipulated
+            
+            return { success: true, user: data.user };
+        }
+        
+        return { success: false, error: data.error || 'Login failed' };
+    } catch (error) {
+        // Handle network errors
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error('Network error: Unable to connect to server. Please check your connection.');
+        }
+        throw error;
+    }
+}
+
+/**
+ * Legacy login function (keeping for backward compatibility)
  * @param {string} username - User's username
  * @param {string} password - User's password
  * @param {string} deviceId - Device ID for restriction
@@ -39,7 +91,66 @@ async function login(username, password, deviceId) {
 }
 
 /**
- * Logout function to invalidate session
+ * Make authenticated requests with secure tokens
+ * @param {string} url - API endpoint URL
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Response>} - Fetch response
+ */
+async function makeAuthenticatedRequest(url, options = {}) {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const deviceToken = localStorage.getItem('deviceToken');
+    
+    if (!sessionToken || !deviceToken) {
+        // Redirect to login
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${sessionToken}`,
+            'X-Device-Token': deviceToken,
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    if (response.status === 401 || response.status === 403) {
+        // Clear tokens and redirect to login
+        localStorage.clear();
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    return response;
+}
+
+/**
+ * Secure logout function
+ * @returns {Promise<void>}
+ */
+async function secureLogout() {
+    try {
+        const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/secure-logout`, {
+            method: 'POST'
+        });
+        
+        if (response) {
+            const data = await response.json();
+            console.log('Logout successful:', data.message);
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    } finally {
+        // Always clear local storage and redirect
+        localStorage.clear();
+        window.location.href = '/login.html';
+    }
+}
+
+/**
+ * Legacy logout function to invalidate session
  * @returns {Promise<void>}
  */
 async function logout() {
@@ -272,4 +383,63 @@ async function checkEmailAvailability(email) {
     } catch (error) {
         throw error;
     }
+}
+
+/**
+ * Get user's registered devices
+ * @returns {Promise<Object>} - List of user devices
+ */
+async function getUserDevices() {
+    try {
+        const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/devices`);
+        
+        if (!response) return { devices: [] };
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to get devices');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Get devices error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Revoke a device
+ * @param {number} deviceId - Device ID to revoke
+ * @returns {Promise<Object>} - Revoke response
+ */
+async function revokeDevice(deviceId) {
+    try {
+        const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/devices/${deviceId}/revoke`, {
+            method: 'POST'
+        });
+        
+        if (!response) return { success: false };
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to revoke device');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Revoke device error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Check if user is authenticated with secure tokens
+ * @returns {boolean} - True if authenticated
+ */
+function isSecurelyAuthenticated() {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const deviceToken = localStorage.getItem('deviceToken');
+    return !!(sessionToken && deviceToken);
 }

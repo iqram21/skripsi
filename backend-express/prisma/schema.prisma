@@ -15,20 +15,58 @@ model User {
   username    String    @unique
   email       String    @unique
   password    String
-  deviceId    String?
+  deviceHash  String?   // Device hash for authentication
   lastLogin   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  tokens      Token[]
+  tokens      Token[]   // Keep for backward compatibility
+  devices     Device[]
+  deviceSessions DeviceSession[]
 }
 
+// Legacy Token model - keeping for backward compatibility
 model Token {
   id          Int       @id @default(autoincrement())
   token       String    @unique @db.VarChar(1000)
   userId      Int
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceId    String
+  deviceHash  String    // Device hash for token validation
   isValid     Boolean   @default(true)
   expiresAt   DateTime
   createdAt   DateTime  @default(now())
+}
+
+// New secure device management
+model Device {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceToken String    @unique @db.VarChar(64)  // Server-generated secure token
+  deviceName  String    // Human-readable device name
+  userAgent   String    @db.Text  // For device identification
+  ipAddress   String?   // Last known IP
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  sessions    DeviceSession[]
+
+  @@index([userId])
+  @@index([deviceToken])
+}
+
+// Session management tied to devices
+model DeviceSession {
+  id            Int       @id @default(autoincrement())
+  sessionToken  String    @unique @db.VarChar(64)  // Server-generated session token
+  deviceId      Int
+  device        Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isValid       Boolean   @default(true)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+
+  @@index([sessionToken])
+  @@index([userId])
+  @@index([deviceId])
 }

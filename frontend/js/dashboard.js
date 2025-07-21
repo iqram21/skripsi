@@ -1,7 +1,7 @@
 // Dashboard page logic
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Check authentication
+        // Check authentication (secure or legacy)
         if (!isAuthenticated()) {
             window.location.href = './login.html';
             return;
@@ -26,8 +26,14 @@ async function initializeDashboard() {
         // Display user information
         await displayUserInfo();
         
-        // Display device ID
-        await displayDeviceId('deviceId');
+        // Check if using secure authentication
+        if (isSecurelyAuthenticated()) {
+            // Display device management section
+            await displayDeviceManagement();
+        } else {
+            // Display legacy device ID
+            await displayDeviceId('deviceId');
+        }
         
         // Setup logout button
         setupLogoutButton();
@@ -41,6 +47,124 @@ async function initializeDashboard() {
     } catch (error) {
         console.error('Error in dashboard initialization:', error);
         throw error;
+    }
+}
+
+/**
+ * Display device management section for secure authentication
+ */
+async function displayDeviceManagement() {
+    try {
+        const deviceSection = document.getElementById('deviceId');
+        if (!deviceSection) return;
+        
+        // Update section title
+        deviceSection.innerHTML = `
+            <h3>Device Management</h3>
+            <div id="currentDevice" class="device-info">
+                <p><strong>Current Device:</strong> <span id="currentDeviceName">Loading...</span></p>
+                <p><strong>Authentication:</strong> <span class="secure-badge">Secure</span></p>
+            </div>
+            <div id="deviceList" class="device-list">
+                <h4>Registered Devices</h4>
+                <div id="devicesContainer">Loading devices...</div>
+            </div>
+            <button id="refreshDevices" class="btn btn-secondary">Refresh Devices</button>
+        `;
+        
+        // Load and display devices
+        await loadUserDevices();
+        
+        // Setup refresh button
+        document.getElementById('refreshDevices').addEventListener('click', loadUserDevices);
+        
+    } catch (error) {
+        console.error('Error displaying device management:', error);
+    }
+}
+
+/**
+ * Load and display user devices
+ */
+async function loadUserDevices() {
+    try {
+        const devicesContainer = document.getElementById('devicesContainer');
+        if (!devicesContainer) return;
+        
+        devicesContainer.innerHTML = 'Loading devices...';
+        
+        const response = await getUserDevices();
+        const devices = response.devices || [];
+        
+        if (devices.length === 0) {
+            devicesContainer.innerHTML = '<p>No devices found.</p>';
+            return;
+        }
+        
+        let devicesHtml = '';
+        devices.forEach((device, index) => {
+            const isCurrentDevice = index === 0; // Assume first device is current (most recently used)
+            const lastUsed = new Date(device.lastUsedAt).toLocaleString();
+            const registered = new Date(device.createdAt).toLocaleString();
+            
+            devicesHtml += `
+                <div class="device-item ${isCurrentDevice ? 'current-device' : ''}">
+                    <div class="device-info">
+                        <h5>${device.deviceName} ${isCurrentDevice ? '(Current)' : ''}</h5>
+                        <p><strong>Last Used:</strong> ${lastUsed}</p>
+                        <p><strong>Registered:</strong> ${registered}</p>
+                        <p><strong>IP:</strong> ${device.ipAddress || 'Unknown'}</p>
+                        <p><strong>Status:</strong> ${device.isActive ? 'Active' : 'Inactive'}</p>
+                    </div>
+                    ${!isCurrentDevice && device.isActive ? `
+                        <button class="btn btn-danger btn-sm revoke-device" data-device-id="${device.id}">
+                            Revoke Access
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        devicesContainer.innerHTML = devicesHtml;
+        
+        // Update current device name
+        const currentDeviceName = document.getElementById('currentDeviceName');
+        if (currentDeviceName && devices.length > 0) {
+            currentDeviceName.textContent = devices[0].deviceName;
+        }
+        
+        // Setup revoke buttons
+        document.querySelectorAll('.revoke-device').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const deviceId = e.target.getAttribute('data-device-id');
+                await handleRevokeDevice(deviceId);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error loading devices:', error);
+        const devicesContainer = document.getElementById('devicesContainer');
+        if (devicesContainer) {
+            devicesContainer.innerHTML = '<p>Error loading devices. Please try again.</p>';
+        }
+    }
+}
+
+/**
+ * Handle device revocation
+ */
+async function handleRevokeDevice(deviceId) {
+    if (!confirm('Are you sure you want to revoke access for this device? The user will be logged out from that device.')) {
+        return;
+    }
+    
+    try {
+        await revokeDevice(deviceId);
+        alert('Device access revoked successfully.');
+        await loadUserDevices(); // Refresh the list
+    } catch (error) {
+        console.error('Error revoking device:', error);
+        alert('Failed to revoke device access. Please try again.');
     }
 }
 
@@ -103,8 +227,13 @@ function setupLogoutButton() {
  */
 async function performLogout() {
     try {
-        // Call logout API
-        await logout();
+        // Use secure logout if authenticated with secure tokens
+        if (isSecurelyAuthenticated()) {
+            await secureLogout();
+        } else {
+            // Call legacy logout API
+            await logout();
+        }
         
         // Clear local authentication data
         clearAuthData();

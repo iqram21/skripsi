@@ -2,8 +2,54 @@ const bcrypt = require('bcrypt');
 const { prisma } = require('../config/database');
 const { generateToken } = require('../utils/jwt');
 const authConfig = require('../config/auth');
+const deviceService = require('./deviceService');
 
 class AuthService {
+  /**
+   * New secure login method
+   */
+  async secureLogin(email, password, deviceInfo, ipAddress) {
+    // Find user by email or username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { username: email }
+        ]
+      }
+    });
+
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Register or update device with new secure token
+    const device = await deviceService.registerDevice(user.id, deviceInfo, ipAddress);
+
+    // Create new session
+    const session = await deviceService.createSession(device.id, user.id);
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    });
+
+    return {
+      success: true,
+      sessionToken: session.sessionToken,
+      deviceToken: device.deviceToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username
+      }
+    };
+  }
+
+  /**
+   * Legacy register method (keeping for backward compatibility)
+   */
   async register(userData) {
     const { username, email, password, deviceId } = userData;
 

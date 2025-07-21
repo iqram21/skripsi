@@ -1,6 +1,6 @@
 const express = require('express');
 const authController = require('../controllers/authController');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { authenticateToken, secureAuthenticateToken } = require('../middleware/authMiddleware');
 const { checkDeviceRegistration } = require('../middleware/deviceMiddleware');
 const { validateRegistration, validateLogin, handleValidationErrors } = require('../utils/validators');
 
@@ -24,7 +24,7 @@ router.get('/verify',
   authController.verify
 );
 
-// Protected routes
+// Protected routes (legacy)
 router.post('/logout',
   authenticateToken,
   authController.logout
@@ -33,6 +33,22 @@ router.post('/logout',
 router.post('/force-logout',
   authenticateToken,
   authController.forceLogout
+);
+
+// New secure device management routes
+router.get('/devices',
+  secureAuthenticateToken,
+  authController.getDevices
+);
+
+router.post('/devices/:deviceId/revoke',
+  secureAuthenticateToken,
+  authController.revokeDevice
+);
+
+router.post('/secure-logout',
+  secureAuthenticateToken,
+  authController.secureLogout
 );
 
 module.exports = router;

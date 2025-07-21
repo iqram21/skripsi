@@ -1,7 +1,36 @@
 const jwt = require('jsonwebtoken');
 const { prisma } = require('../config/database');
 const { verifyToken } = require('../utils/jwt');
+const deviceService = require('../services/deviceService');
 
+// New secure authentication middleware
+const secureAuthenticateToken = async (req, res, next) => {
+  try {
+    const sessionToken = req.headers['authorization']?.replace('Bearer ', '');
+    const deviceToken = req.headers['x-device-token'];
+
+    if (!sessionToken || !deviceToken) {
+      return res.status(401).json({ error: 'Missing authentication' });
+    }
+
+    // Validate session and device tokens
+    const validation = await deviceService.validateSession(sessionToken, deviceToken);
+    
+    if (!validation.valid) {
+      return res.status(403).json({ error: validation.reason });
+    }
+
+    req.user = validation.user;
+    req.device = validation.device;
+    req.session = validation.session;
+    next();
+  } catch (error) {
+    console.error('Secure authentication error:', error);
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
+};
+
+// Legacy authentication middleware (keeping for backward compatibility)
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -43,4 +72,7 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateToken };
+module.exports = { 
+  authenticateToken,
+  secureAuthenticateToken 
+};
